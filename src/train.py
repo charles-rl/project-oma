@@ -76,6 +76,7 @@ def show_random_images(classes, trainloader):
 def test(model, dataloader):
     correct = 0
     total = 0
+    model.eval() # Turn off dropout
     # since we're not training, we don't need to calculate the gradients for our outputs
     with torch.no_grad():
         for data in dataloader:
@@ -88,7 +89,7 @@ def test(model, dataloader):
             _, predicted = torch.max(outputs, 1)
             total += labels.size(0)
             correct += (predicted == labels).sum().item()
-    
+    model.train() # Turn dropout back on
     return 100 * correct / total
 
 def main():
@@ -127,6 +128,7 @@ def main():
     optimizer = optim.SGD(model.parameters(), lr=args.lr, momentum=args.momentum, weight_decay=args.weight_decay)
 
     # 6. Training Loop
+    model.train() # Set model to training mode (important for dropout)
     for epoch in range(args.epochs):  # loop over the dataset multiple times
         running_loss = 0.0
         for i, data in enumerate(trainloader, 0):
