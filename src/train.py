@@ -41,22 +41,31 @@ set_seed_everywhere(args.seed)
 class Net(nn.Module):
     def __init__(self, dropout_rate=0.0, conv_ch1=6, conv_ch2=16, fc1_dim=120, fc2_dim=84):
         super().__init__()
-        self.conv1 = nn.Conv2d(3, conv_ch1, 5)
+        self.conv1 = nn.Conv2d(3, conv_ch1, 3, padding=1)
+        self.bn1 = nn.BatchNorm2d(conv_ch1)
+        
+        self.conv2 = nn.Conv2d(conv_ch1, conv_ch2, 3, padding=1)
+        self.bn2 = nn.BatchNorm2d(conv_ch2)
+        
         self.pool = nn.MaxPool2d(2, 2)
-        self.conv2 = nn.Conv2d(conv_ch1, conv_ch2, 5)
-        self.fc1 = nn.Linear(conv_ch2 * 5 * 5, fc1_dim)
+        
+        self.fc1 = nn.Linear(conv_ch2 * 4 * 4, fc1_dim)
+        self.ln1 = nn.LayerNorm(fc1_dim)
         self.dropout1 = nn.Dropout(p=dropout_rate)
+        
         self.fc2 = nn.Linear(fc1_dim, fc2_dim)
+        self.ln2 = nn.LayerNorm(fc2_dim)
         self.dropout2 = nn.Dropout(p=dropout_rate)
+        
         self.fc3 = nn.Linear(fc2_dim, 10)
 
     def forward(self, x):
-        x = self.pool(F.relu(self.conv1(x)))
-        x = self.pool(F.relu(self.conv2(x)))
+        x = self.pool(self.bn1(F.mish(self.conv1(x))))
+        x = self.pool(self.bn2(F.mish(self.conv2(x))))
         x = torch.flatten(x, 1) # flatten all dimensions except batch
-        x = F.relu(self.fc1(x))
+        x = self.ln1(F.mish(self.fc1(x)))
         x = self.dropout1(x)
-        x = F.relu(self.fc2(x))
+        x = self.ln2(F.mish(self.fc2(x)))
         x = self.dropout2(x)
         x = self.fc3(x)
         return x
@@ -101,20 +110,33 @@ def main():
     wandb.init(project=args.project_name, name=args.run_name, config=args)
 
     # 4. Data Loading & Preprocessing
-    transform = v2.Compose([
+    transform_train = v2.Compose([
+        v2.RandomCrop(32, padding=4),
+        v2.RandomHorizontalFlip(),
         v2.ToImage(),
         v2.ToDtype(torch.float32, scale=True),
-        v2.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5))])
+        v2.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5))
+    ])
+    
+    transform_test = v2.Compose([
+        v2.ToImage(),
+        v2.ToDtype(torch.float32, scale=True),
+        v2.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5))
+    ])
 
-    trainset = torchvision.datasets.CIFAR10(root='./dataset', train=True,
-                                            download=True, transform=transform)
-    trainloader = torch.utils.data.DataLoader(trainset, batch_size=args.batch_size,
-                                            shuffle=True, num_workers=2)
+    trainset = torchvision.datasets.CIFAR10(
+        root='./dataset', train=True, download=True, transform=transform_train
+    )
+    trainloader = torch.utils.data.DataLoader(
+        trainset, batch_size=args.batch_size, shuffle=True, num_workers=2
+    )
 
-    testset = torchvision.datasets.CIFAR10(root='./dataset', train=False,
-                                        download=True, transform=transform)
-    testloader = torch.utils.data.DataLoader(testset, batch_size=args.batch_size,
-                                            shuffle=False, num_workers=2)
+    testset = torchvision.datasets.CIFAR10(
+        root='./dataset', train=False, download=True, transform=transform_test
+    )
+    testloader = torch.utils.data.DataLoader(
+        testset, batch_size=args.batch_size, shuffle=False, num_workers=2
+    )
     
     # classes = ('plane', 'car', 'bird', 'cat', 'deer', 'dog', 'frog', 'horse', 'ship', 'truck')
     # show_random_images(classes, trainloader)
