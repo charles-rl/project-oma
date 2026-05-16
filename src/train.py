@@ -14,7 +14,7 @@ DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 # 2. Argument Parser Setup
 parser = argparse.ArgumentParser(description="Train a simple CNN on CIFAR-10 based on the PyTorch tutorial with WanDB integration")
-parser.add_argument("--project_name", type=str, default="OMA-CIFAR10", help="WanDB project name")
+parser.add_argument("--wandb_project_name", type=str, default="OMA-CIFAR10", help="WanDB project name")
 parser.add_argument("--run_name", type=str, default="run", help="WanDB run name")
 parser.add_argument("--seed", type=int, default=42, help="Random seed for reproducibility")
 parser.add_argument("--batch_size", type=int, default=4, help="Batch size for training")
@@ -25,7 +25,7 @@ parser.add_argument("--fc1_dim", type=int, default=120, help="Dimension of first
 parser.add_argument("--fc2_dim", type=int, default=84, help="Dimension of second fully connected layer")
 parser.add_argument("--lr", type=float, default=0.001, help="Learning rate")
 parser.add_argument("--momentum", type=float, default=0.9, help="Momentum for SGD optimizer")
-parser.add_argument("--weight_decay", type=float, default=0.0, help="Weight decay for optimizer")
+parser.add_argument("--weight_decay", type=float, default=0.0, help="Weight decay for SGD optimizer")
 parser.add_argument("--epochs", type=int, default=2, help="Number of epochs to train")
 parser.add_argument("--save_model", type=bool, default=False, help="Whether to save the trained model")
 args = parser.parse_args()
