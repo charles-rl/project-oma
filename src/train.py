@@ -1,4 +1,5 @@
 import argparse
+import random
 import wandb
 import matplotlib.pyplot as plt
 import numpy as np
@@ -15,6 +16,7 @@ DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 parser = argparse.ArgumentParser(description="Train a simple CNN on CIFAR-10 based on the PyTorch tutorial with WanDB integration")
 parser.add_argument("--project_name", type=str, default="OMA-CIFAR10", help="WanDB project name")
 parser.add_argument("--run_name", type=str, default="run", help="WanDB run name")
+parser.add_argument("--seed", type=int, default=42, help="Random seed for reproducibility")
 parser.add_argument("--batch_size", type=int, default=4, help="Batch size for training")
 parser.add_argument("--conv_ch1", type=int, default=6, help="Number of channels for conv layer 1")
 parser.add_argument("--conv_ch2", type=int, default=16, help="Number of channels for conv layer 2")
@@ -22,9 +24,14 @@ parser.add_argument("--fc1_dim", type=int, default=120, help="Dimension of first
 parser.add_argument("--fc2_dim", type=int, default=84, help="Dimension of second fully connected layer")
 parser.add_argument("--lr", type=float, default=0.001, help="Learning rate")
 parser.add_argument("--momentum", type=float, default=0.9, help="Momentum for SGD optimizer")
+parser.add_argument("--weight_decay", type=float, default=0.0, help="Weight decay for optimizer")
 parser.add_argument("--epochs", type=int, default=2, help="Number of epochs to train")
 parser.add_argument("--save_model", type=bool, default=False, help="Whether to save the trained model")
 args = parser.parse_args()
+
+torch.manual_seed(args.seed)
+np.random.seed(args.seed)
+random.seed(args.seed)
 
 class Net(nn.Module):
     def __init__(self, conv_ch1=6, conv_ch2=16, fc1_dim=120, fc2_dim=84):
@@ -68,14 +75,15 @@ def test(model, dataloader):
     with torch.no_grad():
         for data in dataloader:
             images, labels = data
+            images, labels = images.to(DEVICE), labels.to(DEVICE)
+            
             # calculate outputs by running images through the network
             outputs = model(images)
             # the class with the highest energy is what we choose as prediction
             _, predicted = torch.max(outputs, 1)
             total += labels.size(0)
             correct += (predicted == labels).sum().item()
-
-    print(f'Accuracy of the network on the 10000 test images: {100 * correct / total} %')
+    
     return 100 * correct / total
 
 def main():
@@ -104,13 +112,14 @@ def main():
     # 5. Model, Criterion, and Optimizer
     # Initialize Model (Tutorial CNN)
     model = Net(conv_ch1=args.conv_ch1, conv_ch2=args.conv_ch2, fc1_dim=args.fc1_dim, fc2_dim=args.fc2_dim)
-    model.to(DEVICE)
     if torch.cuda.device_count() > 1:
-       model = nn.DataParallel(model)
+        print(f"Using {torch.cuda.device_count()} GPUs!")
+        model = nn.DataParallel(model)
+    model.to(DEVICE)
     
     # Define Loss
     criterion = nn.CrossEntropyLoss()
-    optimizer = optim.SGD(model.parameters(), lr=args.lr, momentum=args.momentum)
+    optimizer = optim.SGD(model.parameters(), lr=args.lr, momentum=args.momentum, weight_decay=args.weight_decay)
 
     # 6. Training Loop
     for epoch in range(args.epochs):  # loop over the dataset multiple times
@@ -118,6 +127,7 @@ def main():
         for i, data in enumerate(trainloader, 0):
             # get the inputs; data is a list of [inputs, labels]
             inputs, labels = data
+            inputs, labels = inputs.to(DEVICE), labels.to(DEVICE)
             
             # zero the parameter gradients
             optimizer.zero_grad()
@@ -131,17 +141,21 @@ def main():
             # print statistics
             running_loss += loss.item()
             if i % 2000 == 1999:    # print every 2000 mini-batches
-                test_accuracy = test(model, testloader)  # Test every 2000 mini-batches
-                train_accuracy = test(model, trainloader)  # Get training accuracy for logging
-                print(f'[{epoch + 1}, {i + 1:5d}] loss: {running_loss / 2000:.3f}, test_accuracy: {test_accuracy:.4f}%, train_accuracy: {train_accuracy:.4f}%')
+                with torch.no_grad():
+                    _, predicted = torch.max(outputs, 1)
+                    correct = (predicted == labels).sum().item()
+                    train_accuracy = 100 * correct / labels.size(0)
+                print(f'[{epoch + 1}, {i + 1:5d}] loss: {running_loss / 2000:.3f}, train_accuracy: {train_accuracy:.4f}%')
                 wandb.log({"train_loss": running_loss / 2000})
-                wandb.log({"test_accuracy": test_accuracy})
                 wandb.log({"train_accuracy": train_accuracy})
                 running_loss = 0.0
+        test_accuracy = test(model, testloader)
+        wandb.log({"epoch": epoch + 1, "test_accuracy": test_accuracy})
+        print(f'End of Epoch {epoch + 1}, Test Accuracy: {test_accuracy:.4f}%')
                 
     print('Finished Training')
     if args.save_model:
-        torch.save(model.state_dict(), "cifar_net.pth")
+        torch.save(model.state_dict(), "cifar10_net.pth")
 
     # 7. Validation Loop (After each epoch)
     test(model, testloader)
