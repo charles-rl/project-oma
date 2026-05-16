@@ -30,9 +30,13 @@ parser.add_argument("--epochs", type=int, default=2, help="Number of epochs to t
 parser.add_argument("--save_model", type=bool, default=False, help="Whether to save the trained model")
 args = parser.parse_args()
 
-torch.manual_seed(args.seed)
-np.random.seed(args.seed)
-random.seed(args.seed)
+def set_seed_everywhere(seed):
+    torch.manual_seed(seed)
+    if torch.cuda.is_available():
+        torch.cuda.manual_seed_all(seed)
+    np.random.seed(seed)
+    random.seed(seed)
+set_seed_everywhere(args.seed)
 
 class Net(nn.Module):
     def __init__(self, dropout_rate=0.0, conv_ch1=6, conv_ch2=16, fc1_dim=120, fc2_dim=84):
