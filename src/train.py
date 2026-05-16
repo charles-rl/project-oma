@@ -118,9 +118,6 @@ def main():
     # 5. Model, Criterion, and Optimizer
     # Initialize Model (Tutorial CNN)
     model = Net(dropout_rate=args.dropout_rate, conv_ch1=args.conv_ch1, conv_ch2=args.conv_ch2, fc1_dim=args.fc1_dim, fc2_dim=args.fc2_dim)
-    if torch.cuda.device_count() > 1:
-        print(f"Using {torch.cuda.device_count()} GPUs!")
-        model = nn.DataParallel(model)
     model.to(DEVICE)
     
     # Define Loss

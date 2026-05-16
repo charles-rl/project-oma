@@ -1,4 +1,3 @@
 .venv/
-src/train_dummy.py
 wandb/
 dataset/
