@@ -128,9 +128,11 @@ def main():
     optimizer = optim.SGD(model.parameters(), lr=args.lr, momentum=args.momentum, weight_decay=args.weight_decay)
 
     # 6. Training Loop
-    model.train() # Set model to training mode (important for dropout)
     for epoch in range(args.epochs):  # loop over the dataset multiple times
+        model.train() # Set model to training mode (important for dropout)
         running_loss = 0.0
+        epoch_train_correct = 0
+        epoch_train_total = 0
         for i, data in enumerate(trainloader, 0):
             # get the inputs; data is a list of [inputs, labels]
             inputs, labels = data
@@ -138,33 +140,49 @@ def main():
             
             # zero the parameter gradients
             optimizer.zero_grad()
-            
             # forward + backward + optimize
             outputs = model(inputs)
             loss = criterion(outputs, labels)
             loss.backward()
             optimizer.step()
             
-            # print statistics
+            # --- Metrics Accumulation ---
             running_loss += loss.item()
-            if i % 2000 == 1999:    # print every 2000 mini-batches
-                with torch.no_grad():
-                    _, predicted = torch.max(outputs, 1)
-                    correct = (predicted == labels).sum().item()
-                    train_accuracy = 100 * correct / labels.size(0)
-                print(f'[{epoch + 1}, {i + 1:5d}] loss: {running_loss / 2000:.3f}, train_accuracy: {train_accuracy:.4f}%')
-                wandb.log({"train_loss": running_loss / 2000})
-                wandb.log({"train_accuracy": train_accuracy})
-                running_loss = 0.0
+            with torch.no_grad():
+                _, predicted = torch.max(outputs, 1)
+                epoch_train_total += labels.size(0)
+                epoch_train_correct += (predicted == labels).sum().item()
+            
+            # Optional: Live Progress (Keep this for your own sanity during long runs)
+            if i % 2000 == 1999:
+                print(f'[{epoch + 1}, {i + 1:5d}] Batch Loss: {loss.item():.3f}')
+                wandb.log({"batch_loss": loss.item(),})
+                
+        # --- End of Epoch Calculations ---
+        # 1. Calculate TRUE Epoch Training Metrics
+        epoch_loss = running_loss / len(trainloader)
+        epoch_acc = 100 * epoch_train_correct / epoch_train_total
+        
+        # 2. Run Evaluation on Test Set
+        # Note: test() should internally handle model.eval() and model.train()
         test_accuracy = test(model, testloader)
-        wandb.log({"epoch": epoch + 1, "test_accuracy": test_accuracy})
-        print(f'End of Epoch {epoch + 1}, Test Accuracy: {test_accuracy:.4f}%')
+
+        # 3. Formal Logging (WandB and Print)
+        print(f'--- Epoch {epoch + 1} Summary ---')
+        print(f'Train Loss: {epoch_loss:.4f} | Train Acc: {epoch_acc:.2f}% | Test Acc: {test_accuracy:.2f}%')
+        
+        wandb.log({
+            "epoch": epoch + 1,
+            "train_loss": epoch_loss,
+            "train_acc": epoch_acc,
+            "test_acc": test_accuracy
+        })
                 
     print('Finished Training')
     if args.save_model:
         torch.save(model.state_dict(), "cifar10_net.pth")
 
-    # 7. Validation Loop (After each epoch)
+    # 7. Validation Loop (After Finishing Training)
     test(model, testloader)
     wandb.log({"final_val_accuracy": test(model, testloader)})
 
