@@ -18,6 +18,7 @@ parser.add_argument("--project_name", type=str, default="OMA-CIFAR10", help="Wan
 parser.add_argument("--run_name", type=str, default="run", help="WanDB run name")
 parser.add_argument("--seed", type=int, default=42, help="Random seed for reproducibility")
 parser.add_argument("--batch_size", type=int, default=4, help="Batch size for training")
+parser.add_argument("--dropout_rate", type=float, default=0.0, help="Dropout rate for fully connected layers")
 parser.add_argument("--conv_ch1", type=int, default=6, help="Number of channels for conv layer 1")
 parser.add_argument("--conv_ch2", type=int, default=16, help="Number of channels for conv layer 2")
 parser.add_argument("--fc1_dim", type=int, default=120, help="Dimension of first fully connected layer")
@@ -34,13 +35,15 @@ np.random.seed(args.seed)
 random.seed(args.seed)
 
 class Net(nn.Module):
-    def __init__(self, conv_ch1=6, conv_ch2=16, fc1_dim=120, fc2_dim=84):
+    def __init__(self, dropout_rate=0.0, conv_ch1=6, conv_ch2=16, fc1_dim=120, fc2_dim=84):
         super().__init__()
         self.conv1 = nn.Conv2d(3, conv_ch1, 5)
         self.pool = nn.MaxPool2d(2, 2)
         self.conv2 = nn.Conv2d(conv_ch1, conv_ch2, 5)
         self.fc1 = nn.Linear(conv_ch2 * 5 * 5, fc1_dim)
+        self.dropout1 = nn.Dropout(p=dropout_rate)
         self.fc2 = nn.Linear(fc1_dim, fc2_dim)
+        self.dropout2 = nn.Dropout(p=dropout_rate)
         self.fc3 = nn.Linear(fc2_dim, 10)
 
     def forward(self, x):
@@ -48,7 +51,9 @@ class Net(nn.Module):
         x = self.pool(F.relu(self.conv2(x)))
         x = torch.flatten(x, 1) # flatten all dimensions except batch
         x = F.relu(self.fc1(x))
+        x = self.dropout1(x)
         x = F.relu(self.fc2(x))
+        x = self.dropout2(x)
         x = self.fc3(x)
         return x
 
@@ -111,7 +116,7 @@ def main():
 
     # 5. Model, Criterion, and Optimizer
     # Initialize Model (Tutorial CNN)
-    model = Net(conv_ch1=args.conv_ch1, conv_ch2=args.conv_ch2, fc1_dim=args.fc1_dim, fc2_dim=args.fc2_dim)
+    model = Net(dropout_rate=args.dropout_rate, conv_ch1=args.conv_ch1, conv_ch2=args.conv_ch2, fc1_dim=args.fc1_dim, fc2_dim=args.fc2_dim)
     if torch.cuda.device_count() > 1:
         print(f"Using {torch.cuda.device_count()} GPUs!")
         model = nn.DataParallel(model)
