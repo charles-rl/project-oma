@@ -17,17 +17,17 @@ parser = argparse.ArgumentParser(description="Train a simple CNN on CIFAR-10 bas
 parser.add_argument("--wandb_project_name", type=str, default="OMA-CIFAR10", help="WanDB project name")
 parser.add_argument("--run_name", type=str, default="run", help="WanDB run name")
 parser.add_argument("--seed", type=int, default=42, help="Random seed for reproducibility")
-parser.add_argument("--batch_size", type=int, default=4, help="Batch size for training")
-parser.add_argument("--dropout_rate", type=float, default=0.0, help="Dropout rate for fully connected layers")
-parser.add_argument("--conv_ch1", type=int, default=6, help="Number of channels for conv layer 1")
-parser.add_argument("--conv_ch2", type=int, default=16, help="Number of channels for conv layer 2")
-parser.add_argument("--conv_ch3", type=int, default=32, help="Number of channels for conv layer 3")
-parser.add_argument("--fc1_dim", type=int, default=120, help="Dimension of first fully connected layer")
-parser.add_argument("--fc2_dim", type=int, default=84, help="Dimension of second fully connected layer")
+parser.add_argument("--batch_size", type=int, default=32, help="Batch size for training")
+parser.add_argument("--dropout_rate", type=float, default=0.1, help="Dropout rate for fully connected layers")
+parser.add_argument("--conv_ch1", type=int, default=16, help="Number of channels for conv layer 1")
+parser.add_argument("--conv_ch2", type=int, default=32, help="Number of channels for conv layer 2")
+parser.add_argument("--conv_ch3", type=int, default=64, help="Number of channels for conv layer 3")
+parser.add_argument("--fc1_dim", type=int, default=256, help="Dimension of first fully connected layer")
+parser.add_argument("--fc2_dim", type=int, default=64, help="Dimension of second fully connected layer")
 parser.add_argument("--lr", type=float, default=0.001, help="Learning rate")
 parser.add_argument("--momentum", type=float, default=0.9, help="Momentum for SGD optimizer")
 parser.add_argument("--weight_decay", type=float, default=0.0, help="Weight decay for SGD optimizer")
-parser.add_argument("--epochs", type=int, default=2, help="Number of epochs to train")
+parser.add_argument("--epochs", type=int, default=50, help="Number of epochs to train")
 parser.add_argument("--save_model", type=bool, default=False, help="Whether to save the trained model")
 args = parser.parse_args()
 
@@ -40,7 +40,7 @@ def set_seed_everywhere(seed):
 set_seed_everywhere(args.seed)
 
 class Net(nn.Module):
-    def __init__(self, dropout_rate=0.0, conv_ch1=6, conv_ch2=16, conv_ch3=32, fc1_dim=120, fc2_dim=84):
+    def __init__(self, dropout_rate=0.1, conv_ch1=16, conv_ch2=32, conv_ch3=64, fc1_dim=256, fc2_dim=64):
         super().__init__()
         self.conv1 = nn.Conv2d(3, conv_ch1, 3, padding=1)
         self.bn1 = nn.BatchNorm2d(conv_ch1)
