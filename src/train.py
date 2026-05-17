@@ -21,6 +21,7 @@ parser.add_argument("--batch_size", type=int, default=4, help="Batch size for tr
 parser.add_argument("--dropout_rate", type=float, default=0.0, help="Dropout rate for fully connected layers")
 parser.add_argument("--conv_ch1", type=int, default=6, help="Number of channels for conv layer 1")
 parser.add_argument("--conv_ch2", type=int, default=16, help="Number of channels for conv layer 2")
+parser.add_argument("--conv_ch3", type=int, default=32, help="Number of channels for conv layer 3")
 parser.add_argument("--fc1_dim", type=int, default=120, help="Dimension of first fully connected layer")
 parser.add_argument("--fc2_dim", type=int, default=84, help="Dimension of second fully connected layer")
 parser.add_argument("--lr", type=float, default=0.001, help="Learning rate")
@@ -39,17 +40,24 @@ def set_seed_everywhere(seed):
 set_seed_everywhere(args.seed)
 
 class Net(nn.Module):
-    def __init__(self, dropout_rate=0.0, conv_ch1=6, conv_ch2=16, fc1_dim=120, fc2_dim=84):
+    def __init__(self, dropout_rate=0.0, conv_ch1=6, conv_ch2=16, conv_ch3=32, fc1_dim=120, fc2_dim=84):
         super().__init__()
         self.conv1 = nn.Conv2d(3, conv_ch1, 3, padding=1)
         self.bn1 = nn.BatchNorm2d(conv_ch1)
         
-        self.conv2 = nn.Conv2d(conv_ch1, conv_ch2, 3, padding=1)
+        self.conv2_identity = nn.Conv2d(conv_ch1, conv_ch2, 1)
+        self.conv21 = nn.Conv2d(conv_ch1, conv_ch2, 3, padding=1)
+        self.conv22 = nn.Conv2d(conv_ch2, conv_ch2, 3, padding=1)
         self.bn2 = nn.BatchNorm2d(conv_ch2)
         
-        self.pool = nn.MaxPool2d(2, 2)
+        self.conv3_identity = nn.Conv2d(conv_ch2, conv_ch3, 1)
+        self.conv31 = nn.Conv2d(conv_ch2, conv_ch3, 3, padding=1)
+        self.conv32 = nn.Conv2d(conv_ch3, conv_ch3, 3, padding=1)
+        self.bn3 = nn.BatchNorm2d(conv_ch3)
         
-        self.fc1 = nn.Linear(conv_ch2 * 4 * 4, fc1_dim)
+        self.pool = nn.AvgPool2d(2, 2)
+        
+        self.fc1 = nn.Linear(conv_ch3 * 4 * 4, fc1_dim)
         self.ln1 = nn.LayerNorm(fc1_dim)
         self.dropout1 = nn.Dropout(p=dropout_rate)
         
@@ -60,15 +68,24 @@ class Net(nn.Module):
         self.fc3 = nn.Linear(fc2_dim, 10)
 
     def forward(self, x):
-        x = self.pool(self.bn1(F.mish(self.conv1(x))))
-        x = self.pool(self.bn2(F.mish(self.conv2(x))))
-        x = torch.flatten(x, 1) # flatten all dimensions except batch
+        x_ = self.pool(self.bn1(F.mish(self.conv1(x))))
+        
+        x = F.mish(self.conv21(x_))
+        x = F.mish(self.conv22(x))
+        x_ = self.pool(self.bn2(F.mish(x + self.conv2_identity(x_))))
+        
+        x = F.mish(self.conv31(x_))
+        x = F.mish(self.conv32(x))
+        x_ = self.pool(self.bn3(F.mish(x + self.conv3_identity(x_))))
+        
+        x = torch.flatten(x_, 1) # flatten all dimensions except batch
         x = self.ln1(F.mish(self.fc1(x)))
         x = self.dropout1(x)
         x = self.ln2(F.mish(self.fc2(x)))
         x = self.dropout2(x)
         x = self.fc3(x)
         return x
+
 
 # functions to show an image
 def imshow(img):
@@ -107,7 +124,7 @@ def test(model, dataloader):
 
 def main():
     # 3. Initialize Weights & Biases
-    wandb.init(project=args.project_name, name=args.run_name, config=args)
+    wandb.init(project=args.wandb_project_name, name=args.run_name, config=args)
 
     # 4. Data Loading & Preprocessing
     transform_train = v2.Compose([
@@ -143,7 +160,7 @@ def main():
 
     # 5. Model, Criterion, and Optimizer
     # Initialize Model (Tutorial CNN)
-    model = Net(dropout_rate=args.dropout_rate, conv_ch1=args.conv_ch1, conv_ch2=args.conv_ch2, fc1_dim=args.fc1_dim, fc2_dim=args.fc2_dim)
+    model = Net(dropout_rate=args.dropout_rate, conv_ch1=args.conv_ch1, conv_ch2=args.conv_ch2, conv_ch3=args.conv_ch3, fc1_dim=args.fc1_dim, fc2_dim=args.fc2_dim)
     model.to(DEVICE)
     
     # Define Loss

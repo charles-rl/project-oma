@@ -2,10 +2,11 @@ hyperparameter,default,minimum,maximum,description
 lr,0.001,0.0001,0.1,Learning rate for the optimizer
 momentum,0.9,0.5,0.99,Momentum for the SGD optimizer
 weight_decay,0.0,0.0,0.01,Weight decay for the optimizer
-epochs,2,1,200,Number of epochs to train
-batch_size,4,4,512,Batch size for training
-dropout_rate,0.0,0.0,0.5,Dropout rate for fully connected layers
-conv_ch1,6,4,32,Number of channels for convolutional layer 1
-conv_ch2,16,16,128,Number of channels for convolutional layer 2
-fc1_dim,120,64,512,Dimension of first fully connected layer
-fc2_dim,84,32,256,Dimension of second fully connected layer
+epochs,50,30,200,Number of epochs to train
+batch_size,32,16,512,Batch size for training
+dropout_rate,0.1,0.0,0.7,Dropout rate for fully connected layers
+conv_ch1,16,8,64,Number of channels for convolutional layer 1
+conv_ch2,32,16,128,Number of channels for convolutional layer 2
+conv_ch3,64,32,256,Number of channels for convolutional layer 3
+fc1_dim,256,128,1024,Dimension of first fully connected layer
+fc2_dim,64,32,512,Dimension of second fully connected layer

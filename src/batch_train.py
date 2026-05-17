@@ -43,6 +43,7 @@ def run_experiment(row_data, gpu_id):
         "--dropout_rate", str(row_data['dropout_rate']),
         "--conv_ch1", str(int(row_data['conv_ch1'])),
         "--conv_ch2", str(int(row_data['conv_ch2'])),
+        "--conv_ch3", str(int(row_data['conv_ch3'])),
         "--fc1_dim", str(int(row_data['fc1_dim'])),
         "--fc2_dim", str(int(row_data['fc2_dim'])),
         "--wandb_project_name", PROJECT_NAME,
